@@ -137,6 +137,8 @@ class DefinitionResolver
         return null;
     }
 
+    private $docblockMap = [];
+    
     /**
      * Gets Doc Block with resolved names for a Node
      *
@@ -145,6 +147,12 @@ class DefinitionResolver
      */
     private function getDocBlock(Node $node)
     {
+        $object_hash = spl_object_hash($node);
+
+        if (isset($this->docblockMap[$object_hash])) {
+            return $this->docblockMap[$object_hash];
+        }
+
         // TODO make more efficient (caching, ensure import table is in right format to begin with)
         $docCommentText = $node->getDocCommentText();
         if ($docCommentText !== null) {
@@ -159,11 +167,12 @@ class DefinitionResolver
                 $namespaceName = 'global';
             }
             $context = new Types\Context($namespaceName, $namespaceImportTable);
-
             try {
                 // create() throws when it thinks the doc comment has invalid fields.
                 // For example, a @see tag that is followed by something that doesn't look like a valid fqsen will throw.
-                return $this->docBlockFactory->create($docCommentText, $context);
+                $docBlock = $this->docBlockFactory->create($docCommentText, $context);
+                $this->docblockMap[$object_hash] = $docBlock;
+                return $docBlock;
             } catch (\InvalidArgumentException $e) {
                 return null;
             }
@@ -171,6 +180,7 @@ class DefinitionResolver
         return null;
     }
 
+    // TODO 目前性能瓶颈
     /**
      * Create a Definition for a definition node
      *
@@ -314,6 +324,7 @@ class DefinitionResolver
         return $this->index->getDefinition($fqn, $globalFallback);
     }
 
+    // TODO 目前性能瓶颈
     /**
      * Given any node, returns the FQN of the symbol that is referenced
      * Returns null if the FQN could not be resolved or the reference node references a variable
